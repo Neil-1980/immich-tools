@@ -22,28 +22,30 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; height
 .skipped { color: #facc15; }
 #error-bar { display: none; background: #7f1d1d; color: #fca5a5; font-size: 13px; padding: 8px 16px; text-align: center; flex-shrink: 0; }
 #viewer { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-.panel { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; min-width: 0; min-height: 0; }
+.panel { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; min-width: 0; min-height: 0; transition: opacity 0.15s; }
 .panel:last-child { border-right: none; }
-.panel-header { flex-shrink: 0; height: 22px; display: flex; align-items: center; justify-content: center; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; }
+.panel.marked { opacity: 0.45; outline: 2px solid #f87171; outline-offset: -2px; }
+.panel-header { flex-shrink: 0; height: 22px; display: flex; align-items: center; justify-content: center; gap: 10px; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; }
+.panel-num { font-size: 12px; color: #444; }
 .recommended-label { font-size: 12px; color: #4ade80; }
-.img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; position: relative; overflow: hidden; min-height: 0; }
+.marked-label { font-size: 12px; color: #f87171; display: none; }
+.panel.marked .marked-label { display: block; }
+.panel.marked .recommended-label { display: none; }
+.img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; position: relative; overflow: hidden; min-height: 0; cursor: pointer; }
 .img-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
 .spinner { font-size: 13px; color: #444; }
-.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
-.overlay.keep { background: rgba(74,222,128,0.12); }
-.overlay.del  { background: rgba(248,113,113,0.12); }
-.overlay.show { opacity: 1; }
-.overlay-label { font-size: 32px; font-weight: 500; letter-spacing: 1px; }
-.overlay.keep .overlay-label { color: #4ade80; }
-.overlay.del  .overlay-label { color: #f87171; }
 .panel-footer { padding: 5px 12px; background: #0d0d0d; border-top: 1px solid #1a1a1a; flex-shrink: 0; }
 .filename { font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
 .meta { display: flex; gap: 10px; font-size: 11px; color: #666; flex-wrap: wrap; }
-.keep-btn { width: 100%; padding: 9px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: #14532d; color: #4ade80; flex-shrink: 0; }
-.keep-btn:hover { filter: brightness(1.2); }
+.mark-btn { width: 100%; padding: 9px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; flex-shrink: 0; background: #1a1a1a; color: #666; transition: background 0.1s, color 0.1s; }
+.panel.marked .mark-btn { background: #7f1d1d; color: #f87171; }
+.mark-btn:hover { background: #222; }
+.panel.marked .mark-btn:hover { background: #991b1b; }
 #controls { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 16px; background: #0d0d0d; border-top: 1px solid #222; flex-shrink: 0; flex-wrap: wrap; }
 #controls button { padding: 6px 18px; border-radius: 7px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb; font-size: 13px; cursor: pointer; }
 #controls button:hover { background: #222; }
+#btn-delete { border-color: #7f1d1d; color: #f87171; display: none; }
+#btn-delete:hover { background: #7f1d1d; }
 .hint { font-size: 12px; color: #3a3a3a; }
 #done { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; gap: 12px; padding: 2rem; }
 #done .big { font-size: 48px; font-weight: 500; color: #4ade80; }
@@ -58,44 +60,18 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; height
   <div id="topbar">
     <a href="/">&#8592; back</a>
     <div class="stats">
-      <span class="lbl">Pair <span id="stat-pair">&#8212;</span> of <span id="stat-total">&#8212;</span></span>
+      <span class="lbl">Group <span id="stat-pair">&#8212;</span> of <span id="stat-total">&#8212;</span></span>
       <span class="kept"><span id="stat-kept">0</span> kept</span>
       <span class="deleted"><span id="stat-deleted">0</span> deleted</span>
       <span class="skipped"><span id="stat-skipped">0</span> skipped</span>
     </div>
   </div>
   <div id="error-bar"></div>
-  <div id="viewer">
-    <div class="panel">
-      <div class="panel-header" id="hdr-a"></div>
-      <div class="img-wrap" id="wrap-a">
-        <span class="spinner" id="sp-a">Loading...</span>
-        <div class="overlay keep" id="ov-a-keep"><span class="overlay-label">KEEP</span></div>
-        <div class="overlay del"  id="ov-a-del"><span class="overlay-label">DELETE</span></div>
-      </div>
-      <div class="panel-footer">
-        <div class="filename" id="fn-a">&#8212;</div>
-        <div class="meta" id="meta-a"></div>
-      </div>
-      <button class="keep-btn" onclick="choose('a')">Keep this one [1]</button>
-    </div>
-    <div class="panel">
-      <div class="panel-header" id="hdr-b"></div>
-      <div class="img-wrap" id="wrap-b">
-        <span class="spinner" id="sp-b">Loading...</span>
-        <div class="overlay keep" id="ov-b-keep"><span class="overlay-label">KEEP</span></div>
-        <div class="overlay del"  id="ov-b-del"><span class="overlay-label">DELETE</span></div>
-      </div>
-      <div class="panel-footer">
-        <div class="filename" id="fn-b">&#8212;</div>
-        <div class="meta" id="meta-b"></div>
-      </div>
-      <button class="keep-btn" onclick="choose('b')">Keep this one [2]</button>
-    </div>
-  </div>
+  <div id="viewer"></div>
   <div id="controls">
-    <button onclick="skip()">Skip [S]</button>
-    <span class="hint">1 / 2 &#8212; keep left/right &nbsp; S &#8212; skip</span>
+    <button id="btn-delete" onclick="deleteMarked()">Delete marked [D]</button>
+    <button onclick="skip()">Keep all [S]</button>
+    <span class="hint" id="hint-text"></span>
   </div>
 </div>
 <div id="done">
@@ -105,19 +81,22 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; height
   <a href="/">&#8592; back to tools</a>
 </div>
 <script>
-let groups=[],idx=0,stats={kept:0,deleted:0,skipped:0},currentA=null,currentB=null,busy=false;
+let groups=[],idx=0,stats={kept:0,deleted:0,skipped:0},currentAssets=[],marked=new Set(),busy=false;
 
 function fmt(b){if(!b)return null;return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';}
 function fmtDate(s){if(!s)return null;return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
 
-function getRecommended(a,b){
-  const resA=(a.exifInfo&&a.exifInfo.exifImageWidth&&a.exifInfo.exifImageHeight)?a.exifInfo.exifImageWidth*a.exifInfo.exifImageHeight:0;
-  const resB=(b.exifInfo&&b.exifInfo.exifImageWidth&&b.exifInfo.exifImageHeight)?b.exifInfo.exifImageWidth*b.exifInfo.exifImageHeight:0;
-  if(resA!==resB)return resA>resB?'a':'b';
-  const sizeA=(a.exifInfo&&a.exifInfo.fileSizeInByte)||0;
-  const sizeB=(b.exifInfo&&b.exifInfo.fileSizeInByte)||0;
-  if(sizeA!==sizeB)return sizeA>sizeB?'a':'b';
-  return null;
+function getRecommended(assets){
+  let best=0;
+  for(let i=1;i<assets.length;i++){
+    const a=assets[best], b=assets[i];
+    const resA=(a.exifInfo&&a.exifInfo.exifImageWidth&&a.exifInfo.exifImageHeight)?a.exifInfo.exifImageWidth*a.exifInfo.exifImageHeight:0;
+    const resB=(b.exifInfo&&b.exifInfo.exifImageWidth&&b.exifInfo.exifImageHeight)?b.exifInfo.exifImageWidth*b.exifInfo.exifImageHeight:0;
+    const sizeA=(a.exifInfo&&a.exifInfo.fileSizeInByte)||0;
+    const sizeB=(b.exifInfo&&b.exifInfo.fileSizeInByte)||0;
+    if(resB>resA||(resB===resA&&sizeB>sizeA))best=i;
+  }
+  return best;
 }
 
 async function init(){
@@ -133,73 +112,103 @@ async function init(){
     document.getElementById('loading').style.display='none';
     document.getElementById('app').style.display='flex';
     document.getElementById('stat-total').textContent=groups.length;
-    loadPair();
+    loadGroup();
   }catch(e){
     document.getElementById('loading').innerHTML='<p class="big" style="color:#f87171">Connection failed</p><p style="color:#666">'+e.message+'</p>';
   }
 }
 
-function loadPair(){
+function loadGroup(){
   if(idx>=groups.length){showDone();return;}
   busy=false;
-  const g=groups[idx];
-  currentA=g.assets[0]; currentB=g.assets[1];
+  marked=new Set();
+  currentAssets=groups[idx].assets;
   document.getElementById('stat-pair').textContent=idx+1;
-  const rec=getRecommended(currentA,currentB);
-  document.getElementById('hdr-a').innerHTML=rec==='a'?'<span class="recommended-label">recommended</span>':'';
-  document.getElementById('hdr-b').innerHTML=rec==='b'?'<span class="recommended-label">recommended</span>':'';
-  setPanel('a',currentA);
-  setPanel('b',currentB);
-}
+  document.getElementById('btn-delete').style.display='none';
+  const rec=getRecommended(currentAssets);
+  const count=currentAssets.length;
+  const keys=count<=9?'1-'+count+' toggle mark':' number keys toggle mark';
+  document.getElementById('hint-text').textContent=keys+' \u2022 D delete marked \u2022 S keep all';
 
-function setPanel(side,asset){
-  const wrap=document.getElementById('wrap-'+side);
-  const old=wrap.querySelector('img');if(old)old.remove();
-  const sp=document.getElementById('sp-'+side);
-  sp.textContent='Loading...'; sp.style.display='block';
-  const img=new Image();
-  img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;display:none;';
-  img.onload=()=>{sp.style.display='none';img.style.display='block';};
-  img.onerror=()=>{sp.textContent='Could not load image';};
-  img.src='/api/assets/'+asset.id+'/thumbnail?size=preview';
-  wrap.appendChild(img);
-  document.getElementById('fn-'+side).textContent=asset.originalFileName||asset.id;
-  const ei=asset.exifInfo||{};
-  const parts=[];
-  const s=fmt(ei.fileSizeInByte);if(s)parts.push(s);
-  const d=fmtDate(asset.fileCreatedAt||asset.localDateTime);if(d)parts.push(d);
-  if(ei.exifImageWidth&&ei.exifImageHeight)parts.push(ei.exifImageWidth+'x'+ei.exifImageHeight);
-  document.getElementById('meta-'+side).innerHTML=parts.map(p=>'<span>'+p+'</span>').join('');
-}
+  const viewer=document.getElementById('viewer');
+  viewer.innerHTML='';
+  currentAssets.forEach((asset,i)=>{
+    const panel=document.createElement('div');
+    panel.className='panel';
+    panel.id='panel-'+i;
 
-async function choose(keep){
-  if(busy)return; busy=true;
-  const del=keep==='a'?currentB:currentA;
-  const delSide=keep==='a'?'b':'a';
-  showOverlay(keep,'keep'); showOverlay(delSide,'del');
-  try{
-    const r=await fetch('/api/assets',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[del.id],force:false})});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    stats.kept++; stats.deleted++;
-  }catch(e){
-    showError('Delete failed: '+e.message); busy=false; hideOverlays(); return;
-  }
-  updateStats();
-  setTimeout(()=>{hideOverlays();idx++;loadPair();},450);
-}
+    const hdr=document.createElement('div');
+    hdr.className='panel-header';
+    hdr.innerHTML='<span class="panel-num">['+( i+1)+']</span>'
+      +(i===rec?'<span class="recommended-label">recommended</span>':'')
+      +'<span class="marked-label">marked for deletion</span>';
+    panel.appendChild(hdr);
 
-function skip(){if(busy)return;stats.skipped++;idx++;updateStats();loadPair();}
+    const wrap=document.createElement('div');
+    wrap.className='img-wrap';
+    wrap.onclick=()=>toggleMark(i);
+    const sp=document.createElement('span');
+    sp.className='spinner';
+    sp.textContent='Loading...';
+    wrap.appendChild(sp);
+    panel.appendChild(wrap);
 
-function showOverlay(side,type){
-  document.getElementById('ov-'+side+'-keep').classList.toggle('show',type==='keep');
-  document.getElementById('ov-'+side+'-del').classList.toggle('show',type==='del');
-}
-function hideOverlays(){
-  ['a','b'].forEach(s=>{
-    document.getElementById('ov-'+s+'-keep').classList.remove('show');
-    document.getElementById('ov-'+s+'-del').classList.remove('show');
+    const footer=document.createElement('div');
+    footer.className='panel-footer';
+    const ei=asset.exifInfo||{};
+    const parts=[];
+    const s=fmt(ei.fileSizeInByte);if(s)parts.push(s);
+    const d=fmtDate(asset.fileCreatedAt||asset.localDateTime);if(d)parts.push(d);
+    if(ei.exifImageWidth&&ei.exifImageHeight)parts.push(ei.exifImageWidth+'x'+ei.exifImageHeight);
+    footer.innerHTML='<div class="filename">'+(asset.originalFileName||asset.id)+'</div>'
+      +'<div class="meta">'+parts.map(p=>'<span>'+p+'</span>').join('')+'</div>';
+    panel.appendChild(footer);
+
+    const btn=document.createElement('button');
+    btn.className='mark-btn';
+    btn.textContent='Mark for deletion ['+(i+1)+']';
+    btn.onclick=()=>toggleMark(i);
+    panel.appendChild(btn);
+
+    viewer.appendChild(panel);
+
+    const img=new Image();
+    img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;display:none;';
+    img.onload=()=>{sp.style.display='none';img.style.display='block';};
+    img.onerror=()=>{sp.textContent='Could not load';};
+    img.src='/api/assets/'+asset.id+'/thumbnail?size=preview';
+    wrap.appendChild(img);
   });
 }
+
+function toggleMark(i){
+  if(busy)return;
+  if(marked.has(i))marked.delete(i);
+  else marked.add(i);
+  document.getElementById('panel-'+i).classList.toggle('marked',marked.has(i));
+  document.getElementById('btn-delete').style.display=marked.size>0?'block':'none';
+}
+
+async function deleteMarked(){
+  if(busy||marked.size===0)return;
+  busy=true;
+  const ids=Array.from(marked).map(i=>currentAssets[i].id);
+  try{
+    const r=await fetch('/api/assets',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,force:false})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const kept=currentAssets.length-marked.size;
+    stats.kept+=kept;
+    stats.deleted+=marked.size;
+  }catch(e){
+    showError('Delete failed: '+e.message); busy=false; return;
+  }
+  updateStats();
+  idx++;
+  loadGroup();
+}
+
+function skip(){if(busy)return;stats.skipped+=currentAssets.length;idx++;updateStats();loadGroup();}
+
 function updateStats(){
   document.getElementById('stat-kept').textContent=stats.kept;
   document.getElementById('stat-deleted').textContent=stats.deleted;
@@ -214,13 +223,14 @@ function showDone(){
   document.getElementById('app').style.display='none';
   const d=document.getElementById('done'); d.style.display='flex';
   document.getElementById('done-count').textContent=stats.kept+stats.skipped;
-  document.getElementById('done-stats').textContent=stats.deleted+' photos deleted  \u2022  '+stats.skipped+' pairs skipped';
+  document.getElementById('done-stats').textContent=stats.deleted+' photos deleted  \u2022  '+stats.skipped+' kept';
 }
 
 document.addEventListener('keydown',e=>{
   if(document.getElementById('app').style.display==='none')return;
-  if(e.key==='1')choose('a');
-  if(e.key==='2')choose('b');
+  const n=parseInt(e.key);
+  if(!isNaN(n)&&n>=1&&n<=currentAssets.length)toggleMark(n-1);
+  if(e.key==='d'||e.key==='D')deleteMarked();
   if(e.key==='s'||e.key==='S')skip();
 });
 
