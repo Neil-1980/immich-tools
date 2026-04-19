@@ -6,12 +6,13 @@
 <title>Duplicate reviewer</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-height: 100vh; display: flex; flex-direction: column; }
+html, body { height: 100%; }
+body { font-family: system-ui, sans-serif; background: #111; color: #eee; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 #loading { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; }
 #loading .big { font-size: 20px; color: #aaa; font-weight: 500; }
 #loading p { font-size: 14px; color: #666; }
-#app { display: none; flex-direction: column; flex: 1; min-height: 0; }
-#topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #222; background: #0d0d0d; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
+#app { display: none; flex-direction: column; height: 100%; min-height: 0; }
+#topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #222; background: #0d0d0d; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
 #topbar a { font-size: 13px; color: #555; text-decoration: none; }
 #topbar a:hover { color: #888; }
 .stats { font-size: 13px; display: flex; gap: 14px; flex-wrap: wrap; }
@@ -20,10 +21,12 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-he
 .deleted { color: #f87171; }
 .skipped { color: #facc15; }
 #error-bar { display: none; background: #7f1d1d; color: #fca5a5; font-size: 13px; padding: 8px 16px; text-align: center; flex-shrink: 0; }
-#viewer { display: flex; flex: 1; min-height: 0; }
-.panel { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; min-width: 0; }
+#viewer { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+.panel { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; min-width: 0; min-height: 0; }
 .panel:last-child { border-right: none; }
-.img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; position: relative; overflow: hidden; min-height: 300px; }
+.panel-header { flex-shrink: 0; height: 22px; display: flex; align-items: center; justify-content: center; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; }
+.recommended-label { font-size: 12px; color: #4ade80; }
+.img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; position: relative; overflow: hidden; min-height: 0; }
 .img-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
 .spinner { font-size: 13px; color: #444; }
 .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
@@ -33,13 +36,13 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-he
 .overlay-label { font-size: 32px; font-weight: 500; letter-spacing: 1px; }
 .overlay.keep .overlay-label { color: #4ade80; }
 .overlay.del  .overlay-label { color: #f87171; }
-.panel-footer { padding: 8px 12px; background: #0d0d0d; border-top: 1px solid #1a1a1a; flex-shrink: 0; }
-.filename { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-.meta { display: flex; gap: 10px; font-size: 12px; color: #666; flex-wrap: wrap; }
-.keep-btn { width: 100%; padding: 11px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: #14532d; color: #4ade80; flex-shrink: 0; }
+.panel-footer { padding: 5px 12px; background: #0d0d0d; border-top: 1px solid #1a1a1a; flex-shrink: 0; }
+.filename { font-size: 11px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.meta { display: flex; gap: 10px; font-size: 11px; color: #666; flex-wrap: wrap; }
+.keep-btn { width: 100%; padding: 9px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: #14532d; color: #4ade80; flex-shrink: 0; }
 .keep-btn:hover { filter: brightness(1.2); }
-#controls { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; background: #0d0d0d; border-top: 1px solid #222; flex-shrink: 0; flex-wrap: wrap; }
-#controls button { padding: 7px 18px; border-radius: 7px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb; font-size: 13px; cursor: pointer; }
+#controls { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 16px; background: #0d0d0d; border-top: 1px solid #222; flex-shrink: 0; flex-wrap: wrap; }
+#controls button { padding: 6px 18px; border-radius: 7px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb; font-size: 13px; cursor: pointer; }
 #controls button:hover { background: #222; }
 .hint { font-size: 12px; color: #3a3a3a; }
 #done { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; gap: 12px; padding: 2rem; }
@@ -64,6 +67,7 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-he
   <div id="error-bar"></div>
   <div id="viewer">
     <div class="panel">
+      <div class="panel-header" id="hdr-a"></div>
       <div class="img-wrap" id="wrap-a">
         <span class="spinner" id="sp-a">Loading...</span>
         <div class="overlay keep" id="ov-a-keep"><span class="overlay-label">KEEP</span></div>
@@ -76,6 +80,7 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-he
       <button class="keep-btn" onclick="choose('a')">Keep this one [1]</button>
     </div>
     <div class="panel">
+      <div class="panel-header" id="hdr-b"></div>
       <div class="img-wrap" id="wrap-b">
         <span class="spinner" id="sp-b">Loading...</span>
         <div class="overlay keep" id="ov-b-keep"><span class="overlay-label">KEEP</span></div>
@@ -102,8 +107,18 @@ body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-he
 <script>
 let groups=[],idx=0,stats={kept:0,deleted:0,skipped:0},currentA=null,currentB=null,busy=false;
 
-function fmt(b){if(!b)return'&#8212;';return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';}
-function fmtDate(s){if(!s)return'&#8212;';return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+function fmt(b){if(!b)return null;return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';}
+function fmtDate(s){if(!s)return null;return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+
+function getRecommended(a,b){
+  const resA=(a.exifInfo&&a.exifInfo.exifImageWidth&&a.exifInfo.exifImageHeight)?a.exifInfo.exifImageWidth*a.exifInfo.exifImageHeight:0;
+  const resB=(b.exifInfo&&b.exifInfo.exifImageWidth&&b.exifInfo.exifImageHeight)?b.exifInfo.exifImageWidth*b.exifInfo.exifImageHeight:0;
+  if(resA!==resB)return resA>resB?'a':'b';
+  const sizeA=(a.exifInfo&&a.exifInfo.fileSizeInByte)||0;
+  const sizeB=(b.exifInfo&&b.exifInfo.fileSizeInByte)||0;
+  if(sizeA!==sizeB)return sizeA>sizeB?'a':'b';
+  return null;
+}
 
 async function init(){
   try{
@@ -116,8 +131,7 @@ async function init(){
       return;
     }
     document.getElementById('loading').style.display='none';
-    const app=document.getElementById('app');
-    app.style.display='flex';
+    document.getElementById('app').style.display='flex';
     document.getElementById('stat-total').textContent=groups.length;
     loadPair();
   }catch(e){
@@ -131,6 +145,9 @@ function loadPair(){
   const g=groups[idx];
   currentA=g.assets[0]; currentB=g.assets[1];
   document.getElementById('stat-pair').textContent=idx+1;
+  const rec=getRecommended(currentA,currentB);
+  document.getElementById('hdr-a').innerHTML=rec==='a'?'<span class="recommended-label">recommended</span>':'';
+  document.getElementById('hdr-b').innerHTML=rec==='b'?'<span class="recommended-label">recommended</span>':'';
   setPanel('a',currentA);
   setPanel('b',currentB);
 }
@@ -148,7 +165,9 @@ function setPanel(side,asset){
   wrap.appendChild(img);
   document.getElementById('fn-'+side).textContent=asset.originalFileName||asset.id;
   const ei=asset.exifInfo||{};
-  const parts=[fmt(ei.fileSizeInByte),fmtDate(asset.fileCreatedAt||asset.localDateTime)];
+  const parts=[];
+  const s=fmt(ei.fileSizeInByte);if(s)parts.push(s);
+  const d=fmtDate(asset.fileCreatedAt||asset.localDateTime);if(d)parts.push(d);
   if(ei.exifImageWidth&&ei.exifImageHeight)parts.push(ei.exifImageWidth+'x'+ei.exifImageHeight);
   document.getElementById('meta-'+side).innerHTML=parts.map(p=>'<span>'+p+'</span>').join('');
 }
