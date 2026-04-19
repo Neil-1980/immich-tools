@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-album cleanup</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-height: 100vh; display: flex; flex-direction: column; }
+#loading { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; }
+#loading .big { font-size: 20px; color: #aaa; font-weight: 500; }
+#loading p { font-size: 14px; color: #666; }
+#app { display: none; flex-direction: column; flex: 1; min-height: 0; }
+#topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #222; background: #0d0d0d; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
+#topbar a { font-size: 13px; color: #555; text-decoration: none; }
+#topbar a:hover { color: #888; }
+.stats { font-size: 13px; display: flex; gap: 14px; flex-wrap: wrap; }
+.stats .lbl { color: #888; }
+.removed-c { color: #4ade80; }
+.skipped-c { color: #facc15; }
+#error-bar { display: none; background: #7f1d1d; color: #fca5a5; font-size: 13px; padding: 8px 16px; text-align: center; flex-shrink: 0; }
+#viewer { display: flex; flex: 1; min-height: 0; }
+#img-panel { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; position: relative; overflow: hidden; min-height: 300px; }
+#img-panel img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+.spinner { font-size: 13px; color: #444; }
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+.overlay.removed-ov { background: rgba(74,222,128,0.12); }
+.overlay.show { opacity: 1; }
+.overlay-label { font-size: 32px; font-weight: 500; color: #4ade80; letter-spacing: 1px; }
+#side-panel { width: 260px; display: flex; flex-direction: column; border-left: 1px solid #1a1a1a; background: #0d0d0d; flex-shrink: 0; overflow-y: auto; }
+.side-info { padding: 12px 14px; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+.filename { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.meta { font-size: 12px; color: #666; }
+.section-label { font-size: 11px; color: #444; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px 6px; flex-shrink: 0; }
+.album-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border: none; border-bottom: 1px solid #161616; background: #0d0d0d; color: #eee; font-size: 13px; cursor: pointer; text-align: left; width: 100%; transition: background 0.1s; }
+.album-btn:hover { background: #1a1a1a; }
+.album-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.remove-tag { font-size: 11px; color: #f87171; flex-shrink: 0; }
+#controls { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; background: #0d0d0d; border-top: 1px solid #222; flex-shrink: 0; flex-wrap: wrap; }
+#controls button { padding: 7px 18px; border-radius: 7px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb; font-size: 13px; cursor: pointer; }
+#controls button:hover { background: #222; }
+.hint { font-size: 12px; color: #3a3a3a; }
+#done { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; gap: 12px; padding: 2rem; }
+#done .big { font-size: 48px; font-weight: 500; color: #4ade80; }
+#done h2 { font-size: 20px; font-weight: 500; }
+#done p { font-size: 14px; color: #666; line-height: 1.8; }
+#done a { color: #378ADD; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="loading">
+  <p class="big">Scanning albums...</p>
+  <p id="loading-detail">Fetching album list</p>
+</div>
+<div id="app">
+  <div id="topbar">
+    <a href="/">&#8592; back</a>
+    <div class="stats">
+      <span class="lbl">Photo <span id="stat-idx">&#8212;</span> of <span id="stat-total">&#8212;</span></span>
+      <span class="removed-c"><span id="stat-removed">0</span> removed</span>
+      <span class="skipped-c"><span id="stat-skipped">0</span> kept in all</span>
+    </div>
+  </div>
+  <div id="error-bar"></div>
+  <div id="viewer">
+    <div id="img-panel">
+      <span class="spinner" id="img-spinner">Loading...</span>
+      <div class="overlay removed-ov" id="ov-removed"><span class="overlay-label">REMOVED</span></div>
+    </div>
+    <div id="side-panel">
+      <div class="side-info">
+        <div class="filename" id="ap-filename">&#8212;</div>
+        <div class="meta" id="ap-meta">&#8212;</div>
+      </div>
+      <div class="section-label">Remove from album</div>
+      <div id="album-btns"></div>
+    </div>
+  </div>
+  <div id="controls">
+    <button onclick="skip()">Keep in all [S]</button>
+    <span class="hint">Click album to remove from it &nbsp; S &#8212; keep in all &nbsp; number keys for albums</span>
+  </div>
+</div>
+<div id="done">
+  <div class="big" id="done-count">0</div>
+  <h2>All multi-album photos reviewed</h2>
+  <p id="done-stats"></p>
+  <a href="/">&#8592; back to tools</a>
+</div>
+<script>
+let items=[],idx=0,stats={removed:0,skipped:0},current=null,busy=false;
+
+function fmt(b){if(!b)return'&#8212;';return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';}
+function fmtDate(s){if(!s)return'&#8212;';return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+
+async function init(){
+  const det=document.getElementById('loading-detail');
+  try{
+    const r=await fetch('/api/albums');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const albums=await r.json();
+    const map={};
+    for(let i=0;i<albums.length;i++){
+      det.textContent='Loading album '+(i+1)+' of '+albums.length+': '+albums[i].albumName;
+      const ar=await fetch('/api/albums/'+albums[i].id);
+      if(!ar.ok)continue;
+      const album=await ar.json();
+      if(!album.assets)continue;
+      for(const asset of album.assets){
+        if(!map[asset.id])map[asset.id]={asset,albums:[]};
+        map[asset.id].albums.push({id:album.id,name:album.albumName});
+      }
+    }
+    items=Object.values(map).filter(x=>x.albums.length>=2);
+    if(items.length===0){
+      document.getElementById('loading').innerHTML='<p class="big">No multi-album photos!</p><p>No photos found in 2+ albums.</p>';
+      return;
+    }
+    document.getElementById('loading').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('stat-total').textContent=items.length;
+    loadItem();
+  }catch(e){
+    document.getElementById('loading').innerHTML='<p class="big" style="color:#f87171">Failed</p><p style="color:#666">'+e.message+'</p>';
+  }
+}
+
+function loadItem(){
+  if(idx>=items.length){showDone();return;}
+  busy=false;
+  current=items[idx];
+  document.getElementById('stat-idx').textContent=idx+1;
+  const asset=current.asset;
+  const panel=document.getElementById('img-panel');
+  const old=panel.querySelector('img');if(old)old.remove();
+  const sp=document.getElementById('img-spinner');
+  sp.textContent='Loading...'; sp.style.display='block';
+  const img=new Image();
+  img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;display:none;';
+  img.onload=()=>{sp.style.display='none';img.style.display='block';};
+  img.onerror=()=>{sp.textContent='Could not load image';};
+  img.src='/api/assets/'+asset.id+'/thumbnail?size=preview';
+  panel.appendChild(img);
+  document.getElementById('ap-filename').textContent=asset.originalFileName||asset.id;
+  const ei=asset.exifInfo||{};
+  const parts=[fmt(ei.fileSizeInByte),fmtDate(asset.fileCreatedAt||asset.localDateTime)];
+  document.getElementById('ap-meta').textContent=parts.join(' · ');
+  document.getElementById('album-btns').innerHTML=current.albums.map((al,i)=>
+    `<button class="album-btn" onclick="removeFrom('${al.id}')"><span class="album-name">[${i+1}] ${al.name}</span><span class="remove-tag">remove</span></button>`
+  ).join('');
+}
+
+async function removeFrom(albumId){
+  if(busy)return; busy=true;
+  const assetId=current.asset.id;
+  try{
+    const r=await fetch('/api/albums/'+albumId+'/assets',{
+      method:'DELETE',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ids:[assetId]})
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    stats.removed++;
+    document.getElementById('ov-removed').classList.add('show');
+  }catch(e){
+    showError('Remove failed: '+e.message); busy=false; return;
+  }
+  updateStats();
+  setTimeout(()=>{document.getElementById('ov-removed').classList.remove('show');idx++;loadItem();},450);
+}
+
+function skip(){if(busy)return;stats.skipped++;idx++;updateStats();loadItem();}
+
+function updateStats(){
+  document.getElementById('stat-removed').textContent=stats.removed;
+  document.getElementById('stat-skipped').textContent=stats.skipped;
+}
+function showError(msg){
+  const b=document.getElementById('error-bar');
+  b.textContent=msg; b.style.display='block';
+  setTimeout(()=>b.style.display='none',5000);
+}
+function showDone(){
+  document.getElementById('app').style.display='none';
+  const d=document.getElementById('done'); d.style.display='flex';
+  document.getElementById('done-count').textContent=stats.removed+stats.skipped;
+  document.getElementById('done-stats').textContent=stats.removed+' removed from albums  \u2022  '+stats.skipped+' kept in all albums';
+}
+
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('app').style.display==='none')return;
+  if(e.key==='s'||e.key==='S'){skip();return;}
+  const n=parseInt(e.key);
+  if(!isNaN(n)&&n>=1&&current&&n<=current.albums.length){
+    removeFrom(current.albums[n-1].id);
+  }
+});
+
+init();
+</script>
+</body>
+</html>

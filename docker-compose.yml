@@ -1,0 +1,10 @@
+services:
+  immich-tools:
+    build: .
+    container_name: immich-tools
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    environment:
+      - IMMICH_URL=http://192.168.1.231:2283
+      - IMMICH_KEY=redacted

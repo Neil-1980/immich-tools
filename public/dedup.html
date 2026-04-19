@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duplicate reviewer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, sans-serif; background: #111; color: #eee; min-height: 100vh; display: flex; flex-direction: column; }
+#loading { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 12px; }
+#loading .big { font-size: 20px; color: #aaa; font-weight: 500; }
+#loading p { font-size: 14px; color: #666; }
+#app { display: none; flex-direction: column; flex: 1; min-height: 0; }
+#topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #222; background: #0d0d0d; flex-shrink: 0; flex-wrap: wrap; gap: 8px; }
+#topbar a { font-size: 13px; color: #555; text-decoration: none; }
+#topbar a:hover { color: #888; }
+.stats { font-size: 13px; display: flex; gap: 14px; flex-wrap: wrap; }
+.stats .lbl { color: #888; }
+.kept { color: #4ade80; }
+.deleted { color: #f87171; }
+.skipped { color: #facc15; }
+#error-bar { display: none; background: #7f1d1d; color: #fca5a5; font-size: 13px; padding: 8px 16px; text-align: center; flex-shrink: 0; }
+#viewer { display: flex; flex: 1; min-height: 0; }
+.panel { flex: 1; display: flex; flex-direction: column; border-right: 1px solid #1a1a1a; min-width: 0; }
+.panel:last-child { border-right: none; }
+.img-wrap { flex: 1; display: flex; align-items: center; justify-content: center; background: #0a0a0a; position: relative; overflow: hidden; min-height: 300px; }
+.img-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; display: none; }
+.spinner { font-size: 13px; color: #444; }
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s; pointer-events: none; }
+.overlay.keep { background: rgba(74,222,128,0.12); }
+.overlay.del  { background: rgba(248,113,113,0.12); }
+.overlay.show { opacity: 1; }
+.overlay-label { font-size: 32px; font-weight: 500; letter-spacing: 1px; }
+.overlay.keep .overlay-label { color: #4ade80; }
+.overlay.del  .overlay-label { color: #f87171; }
+.panel-footer { padding: 8px 12px; background: #0d0d0d; border-top: 1px solid #1a1a1a; flex-shrink: 0; }
+.filename { font-size: 12px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.meta { display: flex; gap: 10px; font-size: 12px; color: #666; flex-wrap: wrap; }
+.keep-btn { width: 100%; padding: 11px; border: none; font-size: 13px; font-weight: 500; cursor: pointer; background: #14532d; color: #4ade80; flex-shrink: 0; }
+.keep-btn:hover { filter: brightness(1.2); }
+#controls { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; background: #0d0d0d; border-top: 1px solid #222; flex-shrink: 0; flex-wrap: wrap; }
+#controls button { padding: 7px 18px; border-radius: 7px; border: 1px solid #2a2a2a; background: #1a1a1a; color: #bbb; font-size: 13px; cursor: pointer; }
+#controls button:hover { background: #222; }
+.hint { font-size: 12px; color: #3a3a3a; }
+#done { display: none; flex-direction: column; align-items: center; justify-content: center; flex: 1; text-align: center; gap: 12px; padding: 2rem; }
+#done .big { font-size: 48px; font-weight: 500; color: #4ade80; }
+#done h2 { font-size: 20px; font-weight: 500; }
+#done p { font-size: 14px; color: #666; line-height: 1.8; }
+#done a { color: #378ADD; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="loading"><p class="big">Loading duplicates...</p><p>Fetching from Immich</p></div>
+<div id="app">
+  <div id="topbar">
+    <a href="/">&#8592; back</a>
+    <div class="stats">
+      <span class="lbl">Pair <span id="stat-pair">&#8212;</span> of <span id="stat-total">&#8212;</span></span>
+      <span class="kept"><span id="stat-kept">0</span> kept</span>
+      <span class="deleted"><span id="stat-deleted">0</span> deleted</span>
+      <span class="skipped"><span id="stat-skipped">0</span> skipped</span>
+    </div>
+  </div>
+  <div id="error-bar"></div>
+  <div id="viewer">
+    <div class="panel">
+      <div class="img-wrap" id="wrap-a">
+        <span class="spinner" id="sp-a">Loading...</span>
+        <div class="overlay keep" id="ov-a-keep"><span class="overlay-label">KEEP</span></div>
+        <div class="overlay del"  id="ov-a-del"><span class="overlay-label">DELETE</span></div>
+      </div>
+      <div class="panel-footer">
+        <div class="filename" id="fn-a">&#8212;</div>
+        <div class="meta" id="meta-a"></div>
+      </div>
+      <button class="keep-btn" onclick="choose('a')">Keep this one [1]</button>
+    </div>
+    <div class="panel">
+      <div class="img-wrap" id="wrap-b">
+        <span class="spinner" id="sp-b">Loading...</span>
+        <div class="overlay keep" id="ov-b-keep"><span class="overlay-label">KEEP</span></div>
+        <div class="overlay del"  id="ov-b-del"><span class="overlay-label">DELETE</span></div>
+      </div>
+      <div class="panel-footer">
+        <div class="filename" id="fn-b">&#8212;</div>
+        <div class="meta" id="meta-b"></div>
+      </div>
+      <button class="keep-btn" onclick="choose('b')">Keep this one [2]</button>
+    </div>
+  </div>
+  <div id="controls">
+    <button onclick="skip()">Skip [S]</button>
+    <span class="hint">1 / 2 &#8212; keep left/right &nbsp; S &#8212; skip</span>
+  </div>
+</div>
+<div id="done">
+  <div class="big" id="done-count">0</div>
+  <h2>All duplicates reviewed</h2>
+  <p id="done-stats"></p>
+  <a href="/">&#8592; back to tools</a>
+</div>
+<script>
+let groups=[],idx=0,stats={kept:0,deleted:0,skipped:0},currentA=null,currentB=null,busy=false;
+
+function fmt(b){if(!b)return'&#8212;';return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB';}
+function fmtDate(s){if(!s)return'&#8212;';return new Date(s).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+
+async function init(){
+  try{
+    const r=await fetch('/api/duplicates');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    groups=data.filter(g=>g.assets&&g.assets.length>=2);
+    if(groups.length===0){
+      document.getElementById('loading').innerHTML='<p class="big">No duplicates found!</p><p>Immich found nothing to review.</p>';
+      return;
+    }
+    document.getElementById('loading').style.display='none';
+    const app=document.getElementById('app');
+    app.style.display='flex';
+    document.getElementById('stat-total').textContent=groups.length;
+    loadPair();
+  }catch(e){
+    document.getElementById('loading').innerHTML='<p class="big" style="color:#f87171">Connection failed</p><p style="color:#666">'+e.message+'</p>';
+  }
+}
+
+function loadPair(){
+  if(idx>=groups.length){showDone();return;}
+  busy=false;
+  const g=groups[idx];
+  currentA=g.assets[0]; currentB=g.assets[1];
+  document.getElementById('stat-pair').textContent=idx+1;
+  setPanel('a',currentA);
+  setPanel('b',currentB);
+}
+
+function setPanel(side,asset){
+  const wrap=document.getElementById('wrap-'+side);
+  const old=wrap.querySelector('img');if(old)old.remove();
+  const sp=document.getElementById('sp-'+side);
+  sp.textContent='Loading...'; sp.style.display='block';
+  const img=new Image();
+  img.style.cssText='max-width:100%;max-height:100%;object-fit:contain;display:none;';
+  img.onload=()=>{sp.style.display='none';img.style.display='block';};
+  img.onerror=()=>{sp.textContent='Could not load image';};
+  img.src='/api/assets/'+asset.id+'/thumbnail?size=preview';
+  wrap.appendChild(img);
+  document.getElementById('fn-'+side).textContent=asset.originalFileName||asset.id;
+  const ei=asset.exifInfo||{};
+  const parts=[fmt(ei.fileSizeInByte),fmtDate(asset.fileCreatedAt||asset.localDateTime)];
+  if(ei.exifImageWidth&&ei.exifImageHeight)parts.push(ei.exifImageWidth+'x'+ei.exifImageHeight);
+  document.getElementById('meta-'+side).innerHTML=parts.map(p=>'<span>'+p+'</span>').join('');
+}
+
+async function choose(keep){
+  if(busy)return; busy=true;
+  const del=keep==='a'?currentB:currentA;
+  const delSide=keep==='a'?'b':'a';
+  showOverlay(keep,'keep'); showOverlay(delSide,'del');
+  try{
+    const r=await fetch('/api/assets',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[del.id],force:false})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    stats.kept++; stats.deleted++;
+  }catch(e){
+    showError('Delete failed: '+e.message); busy=false; hideOverlays(); return;
+  }
+  updateStats();
+  setTimeout(()=>{hideOverlays();idx++;loadPair();},450);
+}
+
+function skip(){if(busy)return;stats.skipped++;idx++;updateStats();loadPair();}
+
+function showOverlay(side,type){
+  document.getElementById('ov-'+side+'-keep').classList.toggle('show',type==='keep');
+  document.getElementById('ov-'+side+'-del').classList.toggle('show',type==='del');
+}
+function hideOverlays(){
+  ['a','b'].forEach(s=>{
+    document.getElementById('ov-'+s+'-keep').classList.remove('show');
+    document.getElementById('ov-'+s+'-del').classList.remove('show');
+  });
+}
+function updateStats(){
+  document.getElementById('stat-kept').textContent=stats.kept;
+  document.getElementById('stat-deleted').textContent=stats.deleted;
+  document.getElementById('stat-skipped').textContent=stats.skipped;
+}
+function showError(msg){
+  const b=document.getElementById('error-bar');
+  b.textContent=msg; b.style.display='block';
+  setTimeout(()=>b.style.display='none',5000);
+}
+function showDone(){
+  document.getElementById('app').style.display='none';
+  const d=document.getElementById('done'); d.style.display='flex';
+  document.getElementById('done-count').textContent=stats.kept+stats.skipped;
+  document.getElementById('done-stats').textContent=stats.deleted+' photos deleted  \u2022  '+stats.skipped+' pairs skipped';
+}
+
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('app').style.display==='none')return;
+  if(e.key==='1')choose('a');
+  if(e.key==='2')choose('b');
+  if(e.key==='s'||e.key==='S')skip();
+});
+
+init();
+</script>
+</body>
+</html>
